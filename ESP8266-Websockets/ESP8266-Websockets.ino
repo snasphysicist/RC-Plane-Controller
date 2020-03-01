@@ -29,6 +29,32 @@ IPAddress webServerIpAddress(
 // Content of page served
 #define PAGE_CONTENT\ 
 "\
+<!DOCTYPE html>\
+<html>\
+<head>\
+<style>\
+body {\
+  display: grid;\
+  justify-items: center;\
+  width: 100%;\
+  font-family: sans;\
+}\
+div {\
+  display: grid;\
+  justify-items: center;\
+  width: 100%;\
+}\
+input {\
+  display: block;\
+  min-width: 50%;\
+  height: 100px;\
+  font-size: 2em;\
+  font-weight: 700;\
+  margin: 15px;\
+}\
+</style>\
+</head>\
+<body>\
 <h1>Plane Control</h1>\
 <div>\
   <input id=\"up\" onmousedown=\"onMouseDown(event)\"\
@@ -58,7 +84,9 @@ IPAddress webServerIpAddress(
   let downButton = document.getElementById(\"down\");\
   downButton.addEventListener(\"touchstart\", function(event){onMouseDown(event);});\
   downButton.addEventListener(\"touchend\", onMouseUp);\
-</script>\ 
+</script>\
+</body>\
+</html>\
 "
 
 // Web server object
