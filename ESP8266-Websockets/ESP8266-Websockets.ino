@@ -38,6 +38,8 @@ body {\
   justify-items: center;\
   width: 100%;\
   font-family: sans;\
+  background-color: black;\
+  color: white;\
 }\
 div {\
   display: grid;\
@@ -51,6 +53,10 @@ input {\
   font-size: 2em;\
   font-weight: 700;\
   margin: 15px;\
+  background-color: black;\
+  color: white;\
+  border-color: white;\
+  border-style: solid;\
 }\
 </style>\
 </head>\
