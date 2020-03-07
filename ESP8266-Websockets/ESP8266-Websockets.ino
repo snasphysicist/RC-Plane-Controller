@@ -141,6 +141,10 @@ unsigned short int dutyCycleLow = 200;
 // Add/subtract on turn
 unsigned short int dutyCycleTurnDifferential = 51;
 
+// Left/right pins
+#define LEFT_MOTOR_GATE   D0
+#define RIGHT_MOTOR_GATE  D2
+
 // Web server handler function
 void handleRequest() {
   webServer.send(
@@ -232,7 +236,11 @@ byte pwmDutyCycleToPercentage(unsigned short int dutyCycle) {
 
 void setLEDDutyCycle(int dutyCycle) {
   analogWrite(
-    LED_BUILTIN,
+    LEFT_MOTOR_GATE,
+    dutyCycle
+  );
+  analogWrite(
+    RIGHT_MOTOR_GATE,
     dutyCycle
   );
 }
