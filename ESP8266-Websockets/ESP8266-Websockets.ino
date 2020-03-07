@@ -61,14 +61,38 @@ input {\
 input:active{\
   background-color: #C92020;\
 }\
+.tbt{\
+  grid-template-columns: 1fr 1fr 1fr;\
+  grid-template-rows: 1fr 1fr 1fr;\
+}\
+.u {\
+  grid-column: 2;\
+  grid-row: 1;\
+}\
+.d {\
+  grid-column: 2;\
+  grid-row: 3;\
+}\
+.l {\
+  grid-column: 1;\
+  grid-row: 2;\
+}\
+.r {\
+  grid-column: 3;\
+  grid-row: 2;\
+}\
 </style>\
 </head>\
 <body>\
 <h1>Plane Control</h1>\
-<div>\
-  <input id=\"up\" onmousedown=\"onMouseDown(event)\"\
+<div class=\"tbt\">\
+  <input id=\"up\" class=\"u\" onmousedown=\"onMouseDown(event)\"\
   onmouseup=\"onMouseUp()\" type=\"button\" value=\"UP\"/>\
-  <input id=\"down\" onmousedown=\"onMouseDown(event)\"\ 
+  <input id=\"left\" class=\"l\" onmousedown=\"onMouseDown(event)\"\
+  onmouseup=\"onMouseUp()\" type=\"button\" value=\"UP\"/>\
+  <input id=\"right\" class=\"r\" onmousedown=\"onMouseDown(event)\"\
+  onmouseup=\"onMouseUp()\" type=\"button\" value=\"UP\"/>\
+  <input id=\"down\" class=\"d\" onmousedown=\"onMouseDown(event)\"\ 
   onmouseup=\"onMouseUp()\" type=\"button\" value=\"DOWN\"/>\ 
 </div>\
 <div>\
@@ -91,10 +115,14 @@ input:active{\
   function onMouseDown(event) {\ 
     let whom = event.target.id;\ 
     if (whom == \"up\") {\ 
-      connection.send(\"H\");\ 
-    } else {\ 
-      connection.send(\"L\")\ 
-    }\ 
+      connection.send(\"U\");\ 
+    } else if (whom == \"down\") {\ 
+      connection.send(\"D\")\ 
+    } else if (whom == \"left\") {\
+      connection.send(\"L\");\
+    } else if (whom == \"right\") {\
+      connection.send(\"R\");\
+    }\
   }\ 
   function onMouseUp() {\ 
     connection.send(\"M\")\ 
@@ -113,6 +141,12 @@ input:active{\
   let downButton = document.getElementById(\"down\");\
   downButton.addEventListener(\"touchstart\", function(event){onMouseDown(event);});\
   downButton.addEventListener(\"touchend\", onMouseUp);\
+  let leftButton = document.getElementById(\"left\");\
+  leftButton.addEventListener(\"touchstart\", function(event){onMouseDown(event);});\
+  leftButton.addEventListener(\"touchend\", onMouseUp);\
+  let rightButton = document.getElementById(\"right\");\
+  rightButton.addEventListener(\"touchstart\", function(event){onMouseDown(event);});\
+  rightButton.addEventListener(\"touchend\", onMouseUp);\
 </script>\
 </body>\
 </html>\
@@ -142,8 +176,8 @@ unsigned short int dutyCycleLow = 200;
 unsigned short int dutyCycleTurnDifferential = 51;
 
 // Left/right pins
-#define LEFT_MOTOR_GATE   D0
-#define RIGHT_MOTOR_GATE  D2
+#define LEFT_MOTOR_GATE   16
+#define RIGHT_MOTOR_GATE  4
 
 // Web server handler function
 void handleRequest() {
@@ -166,8 +200,9 @@ void handleWebSocketInput(
     byte mediumPercentage;
     byte lowPercentage;
     byte differentialPercentage;
+    unsigned short int turnDifferential;
     switch (payload[0]) {
-      case 'H':
+      case 'U':
         // Increase speed
         setLEDDutyCycle(dutyCycleHigh);
         break;
@@ -175,9 +210,15 @@ void handleWebSocketInput(
         // Return to default speed
         setLEDDutyCycle(dutyCycleMedium);
         break;
-      case 'L':
+      case 'D':
         // Low speed
         setLEDDutyCycle(dutyCycleLow);
+        break;
+      case 'L':
+        setTurnDutyCycle('L');
+        break;
+      case 'R':
+        setTurnDutyCycle('R');
         break;
       case 'G':
         // Get power levels
@@ -217,7 +258,8 @@ void handleWebSocketInput(
         dutyCycleHigh = percentageToPWMDutyCycle(highPercentage);
         dutyCycleMedium = percentageToPWMDutyCycle(mediumPercentage);
         dutyCycleLow = percentageToPWMDutyCycle(lowPercentage);
-        dutyCycleTurnDifferential = percentageToPWMDutyCycle(differentialPercentage);
+        turnDifferential = percentageToPWMDutyCycle(differentialPercentage);
+        dutyCycleTurnDifferential = limitTurnDifferential(turnDifferential);
         setLEDDutyCycle(dutyCycleMedium);
         break;
       default:
@@ -243,6 +285,76 @@ void setLEDDutyCycle(int dutyCycle) {
     RIGHT_MOTOR_GATE,
     dutyCycle
   );
+}
+
+/* 
+ * Ensure that the turn differential 
+ * won't modify the turn cycles
+ * outside of 0 to 1023 range
+ */
+unsigned short int limitTurnDifferential(
+  unsigned short int turnDifferential
+) {
+  unsigned short int minimum = 1023;
+  unsigned short int maximum = 0;
+  if (minimum > dutyCycleLow) {
+    minimum = dutyCycleLow;
+  }
+  if (minimum > dutyCycleMedium) {
+    minimum = dutyCycleMedium;
+  }
+  if (minimum > dutyCycleHigh) {
+    minimum = dutyCycleHigh;
+  }
+  if (maximum < dutyCycleLow) {
+    maximum = dutyCycleLow;
+  }
+  if (maximum < dutyCycleMedium) {
+    maximum = dutyCycleMedium;
+  }
+  if (maximum < dutyCycleHigh) {
+    maximum = dutyCycleHigh;
+  }
+  if ((1023 - maximum) < minimum) {
+    minimum = 1023 - maximum;
+  }
+  if (turnDifferential < minimum) {
+    return turnDifferential;
+  } else {
+    return minimum;
+  }
+}
+
+void setTurnDutyCycle(byte turnDirection) {
+  if (turnDirection == 'L') {
+    /*
+     * For left turn
+     * Increase right speed
+     * Decrease left speed
+     */
+    analogWrite(
+      LEFT_MOTOR_GATE,
+      dutyCycleMedium - dutyCycleTurnDifferential
+    );
+    analogWrite(
+      RIGHT_MOTOR_GATE,
+      dutyCycleMedium + dutyCycleTurnDifferential
+    );
+  } else if (turnDirection == 'R') {
+    /*
+     * For right turn
+     * Increase left speed
+     * Decrease right speed
+     */
+    analogWrite(
+      LEFT_MOTOR_GATE,
+      dutyCycleMedium + dutyCycleTurnDifferential
+    );
+    analogWrite(
+      RIGHT_MOTOR_GATE,
+      dutyCycleMedium - dutyCycleTurnDifferential
+    );
+  }
 }
 
 void setup() {
