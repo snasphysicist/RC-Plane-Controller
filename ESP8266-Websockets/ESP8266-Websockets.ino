@@ -79,6 +79,8 @@ input:active{\
   <input id=\"medium-power\" type=\"number\" min=\"1\" max=\"100\" step=\"1\" value=\"60\"/>\
   <p>Low Power (&#37;)</p>\
   <input id=\"low-power\" type=\"number\" min=\"1\" max=\"100\" step=\"1\" value=\"20\"/>\
+  <p>Turn Differential (&#37;)</p>\
+  <input id=\"turn-differential\" type=\"number\" min=\"1\" max=\"100\" step=\"1\" value=\"5\"/>\
   <input id=\"set\" onclick=\"setDutyCycles()\" type=\"button\" value=\"SET\"/>\  
 <div>\
 <script type=\"text/javascript\">\ 
@@ -102,6 +104,7 @@ input:active{\
     sendText = sendText + (\"000\" + document.getElementById(\"high-power\").value).slice(-3);\
     sendText = sendText + (\"000\" + document.getElementById(\"medium-power\").value).slice(-3);\
     sendText = sendText + (\"000\" + document.getElementById(\"low-power\").value).slice(-3);\
+    sendText = sendText + (\"000\" + document.getElementById(\"turn-differential\").value).slice(-3);\
     connection.send(sendText);\
   }\
   let upButton = document.getElementById(\"up\");\
@@ -130,10 +133,13 @@ WebSocketsServer webSocketServer(WEB_SOCKET_SERVER_PORT);
 // DNS server object
 DNSServer dnsServer;
 
-// PWM duty cycles
+// PWM duty cycles (initial)
 unsigned short int dutyCycleHigh = 1020;
 unsigned short int dutyCycleMedium = 610;
 unsigned short int dutyCycleLow = 200;
+
+// Add/subtract on turn
+unsigned short int dutyCycleTurnDifferential = 51;
 
 // Web server handler function
 void handleRequest() {
@@ -155,10 +161,15 @@ void handleWebSocketInput(
     byte highPercentage;
     byte mediumPercentage;
     byte lowPercentage;
+    byte differentialPercentage;
     switch (payload[0]) {
       case 'H':
         // Increase speed
         setLEDDutyCycle(dutyCycleHigh);
+        break;
+      case 'M':
+        // Return to default speed
+        setLEDDutyCycle(dutyCycleMedium);
         break;
       case 'L':
         // Low speed
@@ -168,6 +179,17 @@ void handleWebSocketInput(
         // Get power levels
         break;
       case 'S':
+        /*
+         * The percentages come
+         * through as ascii strings
+         * Ascii 0 is byte value 48
+         * Ascii 1 is byte value 49
+         * etc...
+         * So subtract 48 to get the digit value
+         * Multiply by a power of ten
+         * depending upon where they
+         * occur in the number
+         */
         highPercentage = (
           100 * (payload[1] - 48)
           + 10 * (payload[2] - 48)
@@ -183,14 +205,18 @@ void handleWebSocketInput(
           + 10 * (payload[8] - 48)
           + (payload[9] - 48)
         );
+        differentialPercentage = (
+          100 * (payload[10] - 48)
+          + 10 * (payload[11] - 48)
+          + (payload[12] - 48)
+        );
         dutyCycleHigh = percentageToPWMDutyCycle(highPercentage);
         dutyCycleMedium = percentageToPWMDutyCycle(mediumPercentage);
         dutyCycleLow = percentageToPWMDutyCycle(lowPercentage);
+        dutyCycleTurnDifferential = percentageToPWMDutyCycle(differentialPercentage);
         setLEDDutyCycle(dutyCycleMedium);
         break;
       default:
-        // Return to default speed
-        setLEDDutyCycle(dutyCycleMedium);
         break;
     }
   }
